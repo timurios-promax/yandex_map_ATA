@@ -1,35 +1,59 @@
 import os
 import sys
-
 import pygame
 import requests
 
-map_request = "https://static-maps.yandex.ru/1.x/?ll=136.808652%2C-27.441587&spn=100.0,10.0&l=sat"
-site = "https://static-maps.yandex.ru/1.x/"
 
-response = requests.get(map_request)
+class MapObject:
+    def __init__(self, ll=None, zoom=2, l="map"):
+        if ll is None:
+            ll = ['76.945465', '43.238293']
+        self.zoom = zoom
+        self.site = "https://static-maps.yandex.ru/1.x/"
+        self.spn = ','.join([str(self.zoom), str(self.zoom)])
+        self.ll = ",".join(ll)
+        self.l = l
 
-if not response:
-    print("Ошибка выполнения запроса:")
-    print(map_request)
-    print("Http статус:", response.status_code, "(", response.reason, ")")
-    sys.exit(1)
+    def requests_get(self):
+        self.spn = ','.join([str(self.zoom), str(self.zoom)])
+        return requests.get(self.site, params={'ll': self.ll, 'l': self.l, 'spn': self.spn})
 
-# Запишем полученное изображение в файл.
+    def __str__(self):
+        self.spn = ','.join([str(self.zoom), str(self.zoom)])
+        return "https://static-maps.yandex.ru/1.x/?ll={}&spn={}&l={}".format(self.ll, self.spn, self.l)
+
+
+mapa = MapObject()
 map_file = "map.png"
-with open(map_file, "wb") as file:
-    file.write(response.content)
-
-# Инициализируем pygame
+clock = pygame.time.Clock()
+running = True
 pygame.init()
 screen = pygame.display.set_mode((600, 450))
-# Рисуем картинку, загружаемую из только что созданного файла.
-screen.blit(pygame.image.load(map_file), (0, 0))
-# Переключаем экран и ждем закрытия окна.
-pygame.display.flip()
-while pygame.event.wait().type != pygame.QUIT:
-    pass
-pygame.quit()
 
-# Удаляем за собой файл с изображением.
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            exit()
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_PAGEUP:
+                mapa.zoom += 0.5
+            if event.key == pygame.K_PAGEDOWN:
+                if mapa.zoom - 0.5 > 0:
+                    mapa.zoom -= 0.5
+
+    response = mapa.requests_get()
+    if not response:
+        print("Ошибка выполнения запроса:")
+        print(str(mapa))
+        print("Http статус:", response.status_code, "(", response.reason, ")")
+        sys.exit(1)
+
+    with open(map_file, "wb") as file:
+        file.write(response.content)
+
+    screen.blit(pygame.image.load(map_file), (0, 0))
+    pygame.display.flip()
+    clock.tick(60)
+pygame.quit()
 os.remove(map_file)
